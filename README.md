@@ -1,2 +1,2 @@
-# desperate_dig
+# Desperate: Dig
 A 3D digging game/sandbox written in rust
