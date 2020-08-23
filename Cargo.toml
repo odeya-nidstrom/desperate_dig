@@ -1,0 +1,13 @@
+[package]
+name = "desperatedig"
+license = "MIT"
+version = "0.1.0"
+authors = ["Odeya Nidström <odeya.nidstrom@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+glutin = "0.24.1"
+glium = "0.27.0"
+nalgebra-glm = "0.7.0"
