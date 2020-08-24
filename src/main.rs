@@ -6,7 +6,7 @@ use glutin::event::{Event, WindowEvent, StartCause, VirtualKeyCode, KeyboardInpu
 /// run event loop
 fn run() {
   let event_loop = EventLoop::new();
-  let renderer = Renderer::new(&event_loop);
+  let mut renderer = Renderer::new(&event_loop);
 
   let start_time = std::time::Instant::now();
 
@@ -14,8 +14,9 @@ fn run() {
     let current_time = std::time::Instant::now();
     let next_frame_time =  current_time +
     std::time::Duration::from_nanos(16_666_667/2);
-    *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
-
+    //*control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame_time);
+    *control_flow = ControlFlow::default();
+    
     match event {
       Event::WindowEvent { event, ..} => match event {
         WindowEvent::CloseRequested => { 
@@ -25,17 +26,21 @@ fn run() {
         WindowEvent::KeyboardInput { 
           input: KeyboardInput { virtual_keycode: Some(VirtualKeyCode::Escape), .. } 
           , .. } => {
-          *control_flow = ControlFlow::Exit;
+            *control_flow = ControlFlow::Exit;
+            return;
+          },
+        WindowEvent::Resized { .. }=> {
+          renderer.refresh_viewport_size();
           return;
-        }
-        _ => return,
+        },
+        _ => (),
       },
       Event::NewEvents(cause) => match cause {
         StartCause::Init => (),
         StartCause::ResumeTimeReached { .. } => (),
-        _ => return
+        _ => ()
       },
-      _ => return
+      _ => ()
     }
 
     renderer.draw(std::time::Instant::now().duration_since(start_time).as_millis());

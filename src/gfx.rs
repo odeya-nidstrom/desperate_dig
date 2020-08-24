@@ -25,8 +25,10 @@ pub struct Renderer {
   //uniforms: glium::uniforms::UniformsStorage<f32, glium::uniforms::EmptyUniforms>,
   world_matrix: [[f32; 4]; 4],
   projection_matrix: [[f32; 4]; 4],
-  view_matrix: [[f32; 4]; 4],
-  shaders: glium::Program
+  //view_matrix: [[f32; 4]; 4],
+  shaders: glium::Program,
+  frame_rendered_count: u32,
+  fps_start_at: u128
 }
 
 impl Renderer {
@@ -34,16 +36,14 @@ impl Renderer {
   pub fn new(event_loop: &EventLoop<()>) -> Renderer {
     let window_builder = WindowBuilder::new()
       .with_title("Desperate Wolf 🐺");
-    let context_builder = ContextBuilder::new();
+    let context_builder = ContextBuilder::new()
+      .with_vsync(true)
+      .with_double_buffer(Some(true))
+      .with_hardware_acceleration(Some(true));
+      //.with_gl(glutin::GlRequest::Specific(glutin::Api::OpenGl, (3,3)));
     let display = Display::new(window_builder, context_builder, event_loop).unwrap();
 
     println!("Found GL {}", display.get_opengl_version_string());
-    
-    /*let monitor_handle = display.gl_window().window().available_monitors().next().unwrap();
-    let fs = Fullscreen::Borderless(monitor_handle);
-    display.gl_window().window().set_fullscreen(Some(fs));
-    */
-
     let matrices = Renderer::init_matrices(&display);
     let program = Renderer::init_shaders(&display);
     
@@ -54,12 +54,19 @@ impl Renderer {
       cube_vertex_buffer: cube_buffers.0,
       cube_index_buffer: cube_buffers.1,
       projection_matrix: matrices.0.into(),
-      view_matrix: matrices.1.into(),
+      //view_matrix: matrices.1.into(),
       world_matrix: matrices.2.into(),
-      shaders: program
+      shaders: program,
+      frame_rendered_count: 0,
+      fps_start_at: 0
     };
    
     renderer
+  }
+
+  pub fn refresh_viewport_size(&mut self) {
+    let matrices = Renderer::init_matrices(&self.display);
+    self.projection_matrix = matrices.0.into();
   }
 
   fn init_shaders(display: &Display) -> glium::Program {
@@ -69,13 +76,15 @@ impl Renderer {
     in vec3 position;
     in vec3 color;
     out vec3 dest_color;
+    out vec3 original_position;
  
     uniform mat4 projection_matrix;
     uniform mat4 view_matrix;
     uniform mat4 world_matrix;
 
     void main() {
-      dest_color = color;
+      dest_color = vec3(1.0, 1.0, 1.0);
+      original_position = position;
       gl_Position = projection_matrix * view_matrix * world_matrix * vec4(position, 1.0);
     }
     ";
@@ -84,10 +93,36 @@ impl Renderer {
     #version 140
 
     in vec3 dest_color;
+    in vec3 original_position;
     out vec4 color;
 
     void main() {
-      color = vec4(dest_color, 1.0);
+      float fract_x;
+      float fract_y;
+      float fract_z;
+      int is_x_near_edge;
+      int is_y_near_edge;
+      int is_z_near_edge;
+      float edge_threshold;
+      float low_threshold;
+      float high_threshold;
+      vec3 position;
+
+      edge_threshold = 0.01;
+      low_threshold = edge_threshold;
+      high_threshold = 1.0 - edge_threshold;
+
+      // detect edges using fract parts; only works for cubes
+      position = (original_position + vec3(1.0, 1.0, 1.0)) / 2;
+      fract_x = fract(position.x);
+      fract_y = fract(position.y);
+      fract_z = fract(position.z);
+
+      is_x_near_edge = fract_x < low_threshold || fract_x > high_threshold ? 1 : 0;
+      is_y_near_edge = fract_y < low_threshold || fract_y > high_threshold ? 1 : 0;
+      is_z_near_edge = fract_z < low_threshold || fract_z > high_threshold ? 1 : 0;
+
+      color = is_x_near_edge + is_y_near_edge + is_z_near_edge >= 2 ? vec4(0.1, 0.1, 0.1, 1.0) : vec4(0.8, 0.8, 0.8, 1.0);
     }
     ";
 
@@ -176,7 +211,7 @@ impl Renderer {
   }
 
   /// Draw next frame
-  pub fn draw(&self, time: u128) {
+  pub fn draw(&mut self, time: u128) {
     let mut target = self.display.draw();
     target.clear_color(0.7, 0.8, 0.85, 1.0);
     
@@ -207,7 +242,20 @@ impl Renderer {
         world_matrix: self.world_matrix
       },
       &params).unwrap();
-    
+  
     target.finish().unwrap();
+
+    self.display.gl_window().swap_buffers().unwrap();
+
+    // fps count
+    self.frame_rendered_count += 1;
+    //println!("frame #{}", self.frame_rendered_count);
+    let duration = time - self.fps_start_at;
+    if duration > 10000 {
+      let fps = self.frame_rendered_count as f32 / duration as f32;
+      println!("FPS: {}", 1000.0*fps);
+      self.fps_start_at = time;
+      self.frame_rendered_count = 0;
+    }
   }
 }
