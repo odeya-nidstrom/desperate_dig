@@ -105,7 +105,7 @@ impl Renderer {
   // init a new renderer
   pub fn new() -> Renderer {
     let mut surface = GlfwSurface::new_gl33(
-      "Desperate: Dig",
+      "Desperate: Dig 🦖",
       WindowOpt::default()
         .set_dim(WindowDim::Windowed {
           width: 1280,
@@ -170,9 +170,12 @@ impl Renderer {
       for (_, event) in self.surface.events_rx.try_iter() {      
         match event {
           WindowEvent::Close => break 'app,
-          WindowEvent::Key(key, _, action, _) => match action {
+          WindowEvent::Key(key, scan, action, _) => match action {
               Action::Repeat => (), // filters out repeat
-              _ => commands.push((key, action == Action::Press))
+              _ => {
+              	println!("key !!! {},{}", scan, key as i32);
+              	commands.push((key, action == Action::Press))
+			  }
             },
           _ => (),
         }
